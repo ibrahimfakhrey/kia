@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Payments - KIA Admin{% endblock %}
+{% block page_title %}Payments{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.payments_create') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Add Payment
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Student</th>
+                        <th>Parent</th>
+                        <th>Amount</th>
+                        <th>Due Date</th>
+                        <th>Paid Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td><strong>{{ payment.student.full_name }}</strong></td>
+                        <td>{{ payment.student.parent.full_name }}</td>
+                        <td>${{ "%.2f"|format(payment.amount) }}</td>
+                        <td>{{ payment.due_date.strftime('%b %d, %Y') }}</td>
+                        <td>{{ payment.paid_date.strftime('%b %d, %Y') if payment.paid_date else '-' }}</td>
+                        <td>
+                            {% if payment.is_paid %}
+                                <span class="badge bg-success">Paid</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form action="{{ url_for('admin.payments_toggle_paid', id=payment.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-{{ 'warning' if payment.is_paid else 'success' }}" title="Toggle payment status">
+                                    <i class="bi bi-{{ 'x-circle' if payment.is_paid else 'check-circle' }}"></i>
+                                </button>
+                            </form>
+                            <a href="{{ url_for('admin.payments_edit', id=payment.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('admin.payments_delete', id=payment.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this payment?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No payments found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

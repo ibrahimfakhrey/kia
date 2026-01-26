@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Students - KIA Admin{% endblock %}
+{% block page_title %}Students{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.students_create') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Add Student
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Date of Birth</th>
+                        <th>Class</th>
+                        <th>Parent</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>
+                            {% if student.profile_image_url %}
+                                <img src="{{ student.profile_image_url }}" alt="" class="rounded-circle me-2" width="32" height="32">
+                            {% endif %}
+                            {{ student.full_name }}
+                        </td>
+                        <td>{{ student.date_of_birth.strftime('%b %d, %Y') if student.date_of_birth else '-' }}</td>
+                        <td>
+                            {% if student.classe %}
+                                <span class="badge bg-primary">{{ student.classe.name }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ student.parent.full_name }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.students_edit', id=student.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('admin.students_delete', id=student.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this student?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">No students found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

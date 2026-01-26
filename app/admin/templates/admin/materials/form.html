@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} - KIA Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" class="row g-3">
+            {{ form.hidden_tag() }}
+
+            <div class="col-md-6">
+                <label class="form-label">Title *</label>
+                {{ form.title(class="form-control", placeholder="e.g., Week 1 - Numbers") }}
+                {% for error in form.title.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Subject *</label>
+                {{ form.subject_id(class="form-select") }}
+                {% for error in form.subject_id.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Type *</label>
+                {{ form.type(class="form-select", id="materialType") }}
+            </div>
+
+            <div class="col-md-6" id="fileField">
+                <label class="form-label">File</label>
+                {{ form.file(class="form-control") }}
+                <small class="text-muted">Allowed: PDF, DOC, PPT, Images (max 50MB)</small>
+                {% if material and material.file_url %}
+                    <div class="mt-2">
+                        <a href="{{ material.file_url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-download"></i> Current File
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-6" id="videoField" style="display: none;">
+                <label class="form-label">YouTube URL</label>
+                {{ form.video_url(class="form-control", placeholder="https://www.youtube.com/watch?v=...") }}
+                {% if material and material.video_url %}
+                    <div class="mt-2">
+                        <a href="{{ material.video_url }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-youtube"></i> Current Video
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-12">
+                <hr>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> Save
+                </button>
+                <a href="{{ url_for('admin.materials_list') }}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const typeSelect = document.getElementById('materialType');
+    const fileField = document.getElementById('fileField');
+    const videoField = document.getElementById('videoField');
+
+    function toggleFields() {
+        if (typeSelect.value === 'video') {
+            fileField.style.display = 'none';
+            videoField.style.display = 'block';
+        } else {
+            fileField.style.display = 'block';
+            videoField.style.display = 'none';
+        }
+    }
+
+    typeSelect.addEventListener('change', toggleFields);
+    toggleFields();
+</script>
+{% endblock %}
