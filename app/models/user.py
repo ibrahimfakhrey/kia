@@ -13,6 +13,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), nullable=False, default='parent')  # 'admin' or 'parent'
     full_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20))
+    fcm_token = db.Column(db.String(255))  # Firebase Cloud Messaging token
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

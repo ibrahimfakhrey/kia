@@ -63,3 +63,27 @@ def get_current_user():
         return jsonify({'error': 'User not found'}), 404
 
     return jsonify(user.to_dict()), 200
+
+
+@api_bp.route('/auth/fcm-token', methods=['POST'])
+@jwt_required()
+def update_fcm_token():
+    """Update user's FCM token for push notifications."""
+    from app.extensions import db
+
+    current_user_id = int(get_jwt_identity())
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    data = request.get_json()
+    fcm_token = data.get('fcm_token')
+
+    if not fcm_token:
+        return jsonify({'error': 'FCM token is required'}), 400
+
+    user.fcm_token = fcm_token
+    db.session.commit()
+
+    return jsonify({'message': 'FCM token updated successfully'}), 200

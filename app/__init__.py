@@ -18,6 +18,10 @@ def create_app(config_class=Config):
     login_manager.login_view = 'admin.login'
     login_manager.login_message_category = 'info'
 
+    # Initialize Firebase
+    from .services.firebase_service import FirebaseService
+    FirebaseService.initialize()
+
     # Register blueprints
     from .api import api_bp
     from .admin import admin_bp
