@@ -40,7 +40,6 @@ def send_test_notification():
 
 
 @api_bp.route('/notifications/check-and-test-all', methods=['POST'])
-@jwt_required()
 def check_and_test_all_fcm_tokens():
     """Check all users with FCM tokens and send test notifications. Admin only."""
 
