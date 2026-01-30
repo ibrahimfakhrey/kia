@@ -39,7 +39,7 @@ def send_test_notification():
         return jsonify({'error': 'Failed to send notification'}), 500
 
 
-@api_bp.route('/notifications/check-and-test-all', methods=['POST'])
+@api_bp.route('/notifications/check-and-test-all', methods=['GET'])
 def check_and_test_all_fcm_tokens():
     """Check all users with FCM tokens and send test notifications. Admin only."""
 
