@@ -2,6 +2,7 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import User, Student, Payment
 from app.services.firebase_service import FirebaseService
+from app.utils.decorators import jwt_admin_required
 from . import api_bp
 
 
@@ -36,6 +37,89 @@ def send_test_notification():
         }), 200
     else:
         return jsonify({'error': 'Failed to send notification'}), 500
+
+
+@api_bp.route('/notifications/check-and-test-all', methods=['POST'])
+@jwt_required()
+@jwt_admin_required
+def check_and_test_all_fcm_tokens():
+    """Check all users with FCM tokens and send test notifications. Admin only."""
+
+    # Get all users with FCM tokens
+    users_with_tokens = User.query.filter(User.fcm_token.isnot(None)).all()
+    users_without_tokens = User.query.filter(User.fcm_token.is_(None)).all()
+
+    report = {
+        'total_users': User.query.count(),
+        'users_with_tokens': len(users_with_tokens),
+        'users_without_tokens': len(users_without_tokens),
+        'notifications_sent': 0,
+        'notifications_failed': 0,
+        'users_with_tokens_list': [],
+        'users_without_tokens_list': [],
+        'notification_results': []
+    }
+
+    # Build list of users with tokens
+    for user in users_with_tokens:
+        report['users_with_tokens_list'].append({
+            'id': user.id,
+            'email': user.email,
+            'full_name': user.full_name,
+            'role': user.role
+        })
+
+    # Build list of users without tokens
+    for user in users_without_tokens:
+        report['users_without_tokens_list'].append({
+            'id': user.id,
+            'email': user.email,
+            'full_name': user.full_name,
+            'role': user.role
+        })
+
+    # Send test notifications to users with tokens
+    title = "إشعار تجريبي - Test Notification"
+    body = "هذا إشعار تجريبي من أكاديمية كيا للتحقق من عمل النظام"
+
+    for user in users_with_tokens:
+        try:
+            result = FirebaseService.send_notification(
+                token=user.fcm_token,
+                title=title,
+                body=body,
+                data={
+                    'type': 'admin_test',
+                    'user_id': str(user.id)
+                }
+            )
+
+            if result:
+                report['notifications_sent'] += 1
+                report['notification_results'].append({
+                    'user_id': user.id,
+                    'email': user.email,
+                    'status': 'success',
+                    'message_id': result
+                })
+            else:
+                report['notifications_failed'] += 1
+                report['notification_results'].append({
+                    'user_id': user.id,
+                    'email': user.email,
+                    'status': 'failed',
+                    'error': 'Firebase returned None'
+                })
+        except Exception as e:
+            report['notifications_failed'] += 1
+            report['notification_results'].append({
+                'user_id': user.id,
+                'email': user.email,
+                'status': 'error',
+                'error': str(e)
+            })
+
+    return jsonify(report), 200
 
 
 def send_payment_reminder(payment_id):
