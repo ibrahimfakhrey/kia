@@ -3,6 +3,7 @@ from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity
 )
+from datetime import datetime
 from app.models import User
 from . import api_bp
 
@@ -87,3 +88,17 @@ def update_fcm_token():
     db.session.commit()
 
     return jsonify({'message': 'FCM token updated successfully'}), 200
+
+
+@api_bp.route('/health', methods=['GET'])
+def health_check():
+    """
+    Simple health check endpoint to keep PythonAnywhere warm.
+    This endpoint is public and requires no authentication.
+    Used by external monitoring services like UptimeRobot.
+    """
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'service': 'KIA API'
+    }), 200

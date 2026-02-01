@@ -34,3 +34,9 @@ uploads/
 
 # Flutter (exclude kia_app from backend repo)
 kia_app/
+
+# Firebase credentials (NEVER commit these!)
+GoogleService-Info.plist
+google-services.json
+config/firebase-credentials.json
+*firebase-adminsdk*.json
