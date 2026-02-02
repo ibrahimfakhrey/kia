@@ -80,6 +80,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if 'attendance' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.attendance_list') }}">
+                                <i class="bi bi-calendar-check"></i> تسجيل الحضور
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if 'subjects' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.subjects_list') }}">
                                 <i class="bi bi-book"></i> المواد
                             </a>
