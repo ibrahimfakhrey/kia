@@ -28,9 +28,11 @@ class S3Service:
             # Save file
             file.save(file_path)
 
-            # Generate URL (relative path for serving)
+            # Generate full URL with domain
+            # Check if BASE_URL is configured, otherwise use localhost
+            base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
             relative_path = f"materials/{subject_id}/{unique_filename}"
-            url = f"/uploads/{relative_path}"
+            url = f"{base_url}/uploads/{relative_path}"
 
             return url
         except Exception as e:
@@ -41,12 +43,13 @@ class S3Service:
         """Delete a file from local uploads folder."""
         try:
             # Extract relative path from URL
-            # URL format: /uploads/materials/1/filename.pdf
-            if not file_url.startswith('/uploads/'):
+            # URL format: https://domain.com/uploads/materials/1/filename.pdf or /uploads/materials/1/filename.pdf
+            if '/uploads/' not in file_url:
                 return False
 
             upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-            relative_path = file_url.replace('/uploads/', '')
+            # Extract path after /uploads/
+            relative_path = file_url.split('/uploads/')[-1]
             file_path = os.path.join(upload_folder, relative_path)
 
             # Delete file if it exists

@@ -18,6 +18,9 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
 
+    # Base URL for generating full file URLs
+    BASE_URL = os.environ.get('BASE_URL', 'https://kiaacdemy.pythonanywhere.com')
+
     # File upload (using local storage instead of AWS S3)
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max
