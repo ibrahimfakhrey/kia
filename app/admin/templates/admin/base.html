@@ -92,19 +92,22 @@
         /* Mobile styles */
         @media (max-width: 768px) {
             .sidebar {
-                width: 80%;
-                max-width: 300px;
+                width: 80% !important;
+                max-width: 300px !important;
+                position: fixed !important;
+                right: -100% !important;
+                display: block !important;
+            }
+            .sidebar.show {
+                right: 0 !important;
             }
             .main-content {
                 margin-right: 0 !important;
             }
             .mobile-menu-btn {
-                display: flex;
+                display: flex !important;
                 align-items: center;
                 justify-content: center;
-            }
-            .col-md-3 {
-                display: none;
             }
             .col-md-9, .col-lg-10 {
                 width: 100% !important;
