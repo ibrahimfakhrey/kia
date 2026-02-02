@@ -13,6 +13,7 @@ class Classe(db.Model):
     # Relationships
     students = db.relationship('Student', backref='classe', lazy='dynamic')
     subjects = db.relationship('Subject', backref='classe', lazy='dynamic', cascade='all, delete-orphan')
+    attendance_records = db.relationship('Attendance', backref='classe', lazy='dynamic', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {

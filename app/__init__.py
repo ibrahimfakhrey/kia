@@ -22,6 +22,9 @@ def create_app(config_class=Config):
     from .services.firebase_service import FirebaseService
     FirebaseService.initialize()
 
+    # Import models so Flask-Migrate can detect them
+    from .models import User, Classe, Student, Subject, Material, Payment, Attendance
+
     # Register blueprints
     from .api import api_bp
     from .admin import admin_bp

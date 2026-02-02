@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
-from app.models import User, Classe, Student, Subject, Material, Payment
+from app.models import User, Classe, Student, Subject, Material, Payment, Attendance
 from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
 from . import admin_bp
@@ -460,3 +460,158 @@ def payments_toggle_paid(id):
     db.session.commit()
     flash(f'Payment marked as {"paid" if payment.is_paid else "unpaid"}.', 'success')
     return redirect(url_for('admin.payments_list'))
+
+# ==================== ATTENDANCE ====================
+
+@admin_bp.route('/attendance')
+@admin_required
+def attendance_list():
+    """Show attendance dashboard - select class and date"""
+    from datetime import date
+    classes = Classe.query.all()
+    today = date.today()
+    return render_template('admin/attendance_list.html', classes=classes, today=today)
+
+
+@admin_bp.route('/attendance/mark/<int:class_id>', methods=['GET', 'POST'])
+@admin_required
+def attendance_mark(class_id):
+    """Mark attendance for a class on a specific date"""
+    from datetime import date, datetime
+    
+    classe = Classe.query.get_or_404(class_id)
+    
+    if request.method == 'GET':
+        # Get date from query params or use today
+        date_str = request.args.get('date')
+        if date_str:
+            try:
+                attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except:
+                attendance_date = date.today()
+        else:
+            attendance_date = date.today()
+        
+        # Get all students in this class
+        students = Student.query.filter_by(class_id=class_id).all()
+        
+        # Get existing attendance records for this date
+        existing_attendance = {}
+        for record in Attendance.query.filter_by(class_id=class_id, date=attendance_date).all():
+            existing_attendance[record.student_id] = record.status
+        
+        return render_template('admin/attendance_mark.html', 
+                             classe=classe, 
+                             students=students,
+                             attendance_date=attendance_date,
+                             existing_attendance=existing_attendance)
+    
+    elif request.method == 'POST':
+        # Process attendance submission
+        from app.api.notifications import send_push_notification
+        
+        attendance_date_str = request.form.get('attendance_date')
+        try:
+            attendance_date = datetime.strptime(attendance_date_str, '%Y-%m-%d').date()
+        except:
+            attendance_date = date.today()
+        
+        students = Student.query.filter_by(class_id=class_id).all()
+        absent_students = []
+        
+        for student in students:
+            status = request.form.get(f'student_{student.id}', 'absent')
+            
+            # Check if attendance record already exists
+            existing = Attendance.query.filter_by(
+                student_id=student.id,
+                date=attendance_date
+            ).first()
+            
+            if existing:
+                # Update existing record
+                existing.status = status
+                existing.marked_by = current_user.id
+                existing.class_id = class_id
+                existing.updated_at = datetime.utcnow()
+            else:
+                # Create new record
+                attendance = Attendance(
+                    student_id=student.id,
+                    class_id=class_id,
+                    date=attendance_date,
+                    status=status,
+                    marked_by=current_user.id
+                )
+                db.session.add(attendance)
+            
+            # Track absent students for notifications
+            if status == 'absent':
+                absent_students.append(student)
+        
+        db.session.commit()
+        
+        # Send notifications to parents of absent students
+        for student in absent_students:
+            parent = student.parent
+            if parent and parent.fcm_token:
+                try:
+                    send_push_notification(
+                        fcm_token=parent.fcm_token,
+                        title='تنبيه غياب',
+                        body=f'{student.full_name} غائب اليوم - {attendance_date.strftime("%Y-%m-%d")}',
+                        data={
+                            'type': 'attendance',
+                            'student_id': student.id,
+                            'status': 'absent',
+                            'date': attendance_date.isoformat()
+                        }
+                    )
+                except Exception as e:
+                    print(f'Error sending notification to parent {parent.id}: {e}')
+        
+        flash(f'تم حفظ الحضور بنجاح. تم إرسال {len(absent_students)} إشعار غياب.', 'success')
+        return redirect(url_for('admin.attendance_list'))
+
+
+@admin_bp.route('/attendance/view/<int:class_id>')
+@admin_required
+def attendance_view(class_id):
+    """View attendance history for a class"""
+    from datetime import date, timedelta
+    
+    classe = Classe.query.get_or_404(class_id)
+    
+    # Get date range from query params (default to last 7 days)
+    end_date = date.today()
+    start_date = end_date - timedelta(days=7)
+    
+    date_from_str = request.args.get('date_from')
+    date_to_str = request.args.get('date_to')
+    
+    if date_from_str:
+        try:
+            from datetime import datetime
+            start_date = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+        except:
+            pass
+    
+    if date_to_str:
+        try:
+            from datetime import datetime
+            end_date = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+        except:
+            pass
+    
+    # Get attendance records for this class in date range
+    attendance_records = Attendance.query.filter(
+        Attendance.class_id == class_id,
+        Attendance.date >= start_date,
+        Attendance.date <= end_date
+    ).order_by(Attendance.date.desc()).all()
+    
+    return render_template('admin/attendance_view.html',
+                         classe=classe,
+                         attendance_records=attendance_records,
+                         start_date=start_date,
+                         end_date=end_date)

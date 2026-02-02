@@ -19,6 +19,7 @@ class User(UserMixin, db.Model):
 
     # Relationships
     students = db.relationship('Student', backref='parent', lazy='dynamic')
+    marked_attendance = db.relationship('Attendance', backref='admin', lazy='dynamic', foreign_keys='Attendance.marked_by')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')

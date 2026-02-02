@@ -15,6 +15,7 @@ class Student(db.Model):
 
     # Relationships
     payments = db.relationship('Payment', backref='student', lazy='dynamic', cascade='all, delete-orphan')
+    attendance_records = db.relationship('Attendance', backref='student', lazy='dynamic', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
