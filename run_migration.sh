@@ -5,21 +5,38 @@
 echo "🔄 Running database migration for attendance feature..."
 echo ""
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "❌ Virtual environment not found. Please create it first:"
-    echo "   python3 -m venv venv"
-    exit 1
-fi
+# Try to find and activate virtual environment
+VENV_ACTIVATED=false
 
-# Activate virtual environment
-source venv/bin/activate
+# Check common virtual environment locations
+if [ -d "venv" ]; then
+    echo "📦 Found virtual environment: venv"
+    source venv/bin/activate
+    VENV_ACTIVATED=true
+elif [ -d "env" ]; then
+    echo "📦 Found virtual environment: env"
+    source env/bin/activate
+    VENV_ACTIVATED=true
+elif [ -d "../venv" ]; then
+    echo "📦 Found virtual environment: ../venv"
+    source ../venv/bin/activate
+    VENV_ACTIVATED=true
+else
+    echo "⚠️  No virtual environment found, trying without..."
+fi
 
 # Check Flask is installed
 if ! command -v flask &> /dev/null; then
-    echo "❌ Flask not found. Install requirements:"
-    echo "   pip install -r requirements.txt"
+    echo "❌ Flask not found."
+    echo ""
+    echo "💡 Please run manually:"
+    echo "   source /path/to/your/venv/bin/activate"
+    echo "   flask db upgrade"
     exit 1
+fi
+
+if [ "$VENV_ACTIVATED" = true ]; then
+    echo "✅ Virtual environment activated"
 fi
 
 echo "📦 Current migration status:"
