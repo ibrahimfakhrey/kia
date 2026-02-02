@@ -1,0 +1,120 @@
+{% extends "admin/base.html" %}
+
+{% block title %}تسجيل الحضور - {{ classe.name }}{% endblock %}
+{% block page_title %}تسجيل الحضور - {{ classe.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-calendar-check"></i> تسجيل الحضور</h5>
+                <a href="{{ url_for('admin.attendance_list') }}" class="btn btn-light btn-sm">
+                    <i class="bi bi-arrow-right"></i> رجوع
+                </a>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="attendanceForm">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">الفصل</label>
+                            <input type="text" class="form-control" value="{{ classe.name }}" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">التاريخ</label>
+                            <input type="date" class="form-control" name="attendance_date"
+                                   value="{{ attendance_date }}" required>
+                        </div>
+                    </div>
+
+                    {% if students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">#</th>
+                                    <th style="width: 50%">اسم الطالب</th>
+                                    <th style="width: 20%" class="text-center">حاضر</th>
+                                    <th style="width: 20%" class="text-center">غائب</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <strong>{{ student.full_name }}</strong>
+                                        {% if existing_attendance.get(student.id) %}
+                                        <span class="badge bg-info ms-2">تم التسجيل مسبقاً</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check d-inline-block">
+                                            <input class="form-check-input" type="radio"
+                                                   name="student_{{ student.id }}"
+                                                   value="present"
+                                                   id="present_{{ student.id }}"
+                                                   {% if existing_attendance.get(student.id) == 'present' %}checked{% endif %}
+                                                   {% if not existing_attendance.get(student.id) %}checked{% endif %}>
+                                            <label class="form-check-label" for="present_{{ student.id }}">
+                                                <i class="bi bi-check-circle text-success"></i>
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="form-check d-inline-block">
+                                            <input class="form-check-input" type="radio"
+                                                   name="student_{{ student.id }}"
+                                                   value="absent"
+                                                   id="absent_{{ student.id }}"
+                                                   {% if existing_attendance.get(student.id) == 'absent' %}checked{% endif %}>
+                                            <label class="form-check-label" for="absent_{{ student.id }}">
+                                                <i class="bi bi-x-circle text-danger"></i>
+                                            </label>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            <button type="button" class="btn btn-outline-success" onclick="markAllPresent()">
+                                <i class="bi bi-check-all"></i> تحديد الكل حاضر
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="markAllAbsent()">
+                                <i class="bi bi-x-lg"></i> تحديد الكل غائب
+                            </button>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-save"></i> حفظ الحضور
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> لا يوجد طلاب في هذا الفصل.
+                        <a href="{{ url_for('admin.students_create') }}" class="alert-link">إضافة طالب جديد</a>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function markAllPresent() {
+    document.querySelectorAll('input[type="radio"][value="present"]').forEach(radio => {
+        radio.checked = true;
+    });
+}
+
+function markAllAbsent() {
+    document.querySelectorAll('input[type="radio"][value="absent"]').forEach(radio => {
+        radio.checked = true;
+    });
+}
+</script>
+{% endblock %}

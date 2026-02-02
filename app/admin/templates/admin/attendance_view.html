@@ -1,0 +1,79 @@
+{% extends "admin/base.html" %}
+
+{% block title %}سجل الحضور - {{ classe.name }}{% endblock %}
+{% block page_title %}سجل الحضور - {{ classe.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-calendar-week"></i> سجل الحضور</h5>
+                <a href="{{ url_for('admin.attendance_list') }}" class="btn btn-light btn-sm">
+                    <i class="bi bi-arrow-right"></i> رجوع
+                </a>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">من تاريخ</label>
+                        <input type="date" class="form-control" name="date_from" value="{{ start_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">إلى تاريخ</label>
+                        <input type="date" class="form-control" name="date_to" value="{{ end_date }}">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> بحث
+                        </button>
+                    </div>
+                </form>
+
+                {% if attendance_records %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>اسم الطالب</th>
+                                <th>الحالة</th>
+                                <th>تم التسجيل بواسطة</th>
+                                <th>وقت التسجيل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in attendance_records %}
+                            <tr>
+                                <td>{{ record.date.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <strong>{{ record.student.full_name }}</strong>
+                                </td>
+                                <td>
+                                    {% if record.status == 'present' %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> حاضر
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> غائب
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.admin.full_name if record.admin else 'غير معروف' }}</td>
+                                <td>{{ record.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> لا توجد سجلات حضور في هذه الفترة.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

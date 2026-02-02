@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+
+{% block title %}الحضور والغياب - لوحة التحكم{% endblock %}
+{% block page_title %}الحضور والغياب{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar-check"></i> تسجيل الحضور اليومي</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">اختر الفصل لتسجيل الحضور</p>
+
+                {% if classes %}
+                <div class="row g-3">
+                    {% for classe in classes %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ classe.name }}</h5>
+                                <p class="card-text text-muted">
+                                    <i class="bi bi-people"></i> {{ classe.students.count() }} طالب
+                                </p>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('admin.attendance_mark', class_id=classe.id, date=today) }}"
+                                       class="btn btn-primary">
+                                        <i class="bi bi-pencil-square"></i> تسجيل الحضور اليوم
+                                    </a>
+                                    <a href="{{ url_for('admin.attendance_view', class_id=classe.id) }}"
+                                       class="btn btn-outline-secondary">
+                                        <i class="bi bi-eye"></i> عرض السجل
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> لا توجد فصول دراسية بعد.
+                    <a href="{{ url_for('admin.classes_create') }}" class="alert-link">إضافة فصل جديد</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
