@@ -226,3 +226,30 @@ def send_welcome_notification(user_id):
     )
 
     return result is not None
+
+
+def send_push_notification(fcm_token, title, body, data=None):
+    """
+    Send a push notification to a specific FCM token.
+
+    Args:
+        fcm_token: The FCM token to send to
+        title: Notification title
+        body: Notification body
+        data: Optional dictionary of data to send with notification
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not fcm_token:
+        print("No FCM token provided")
+        return False
+
+    result = FirebaseService.send_notification(
+        token=fcm_token,
+        title=title,
+        body=body,
+        data=data or {}
+    )
+
+    return result is not None
