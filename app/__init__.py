@@ -1,6 +1,7 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from .config import Config
 from .extensions import db, migrate, jwt, login_manager, cors
+import os
 
 
 def create_app(config_class=Config):
@@ -31,6 +32,17 @@ def create_app(config_class=Config):
 
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    # Route to serve uploaded files
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        return send_from_directory(upload_folder, filename)
+
+    # Create uploads folder if it doesn't exist
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+    os.makedirs(upload_folder, exist_ok=True)
+    os.makedirs(os.path.join(upload_folder, 'materials'), exist_ok=True)
 
     # Create tables
     with app.app_context():

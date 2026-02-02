@@ -1,65 +1,61 @@
-import boto3
-from botocore.exceptions import ClientError
-from flask import current_app
+from flask import current_app, url_for
 import uuid
 import os
+from werkzeug.utils import secure_filename
 
 
 class S3Service:
-    def __init__(self):
-        self.s3_client = None
-
-    def _get_client(self):
-        if self.s3_client is None:
-            self.s3_client = boto3.client(
-                's3',
-                aws_access_key_id=current_app.config['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=current_app.config['AWS_SECRET_ACCESS_KEY'],
-                region_name=current_app.config['AWS_S3_REGION']
-            )
-        return self.s3_client
+    """File upload service using local filesystem instead of AWS S3"""
 
     def upload_file(self, file, subject_id):
-        """Upload a file to S3 and return the URL."""
+        """Upload a file to local uploads folder and return the URL."""
         try:
-            client = self._get_client()
-            bucket = current_app.config['AWS_S3_BUCKET']
+            # Get upload folder from config
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+
+            # Create subject folder if it doesn't exist
+            subject_folder = os.path.join(upload_folder, 'materials', str(subject_id))
+            os.makedirs(subject_folder, exist_ok=True)
 
             # Generate unique filename
-            ext = os.path.splitext(file.filename)[1]
+            original_filename = secure_filename(file.filename)
+            ext = os.path.splitext(original_filename)[1]
             unique_filename = f"{uuid.uuid4().hex}{ext}"
-            key = f"materials/{subject_id}/{unique_filename}"
 
-            # Upload file
-            client.upload_fileobj(
-                file,
-                bucket,
-                key,
-                ExtraArgs={'ContentType': file.content_type}
-            )
+            # Full file path
+            file_path = os.path.join(subject_folder, unique_filename)
 
-            # Generate URL
-            region = current_app.config['AWS_S3_REGION']
-            url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+            # Save file
+            file.save(file_path)
+
+            # Generate URL (relative path for serving)
+            relative_path = f"materials/{subject_id}/{unique_filename}"
+            url = f"/uploads/{relative_path}"
 
             return url
-        except ClientError as e:
-            current_app.logger.error(f"S3 upload error: {e}")
+        except Exception as e:
+            current_app.logger.error(f"File upload error: {e}")
             return None
 
     def delete_file(self, file_url):
-        """Delete a file from S3."""
+        """Delete a file from local uploads folder."""
         try:
-            client = self._get_client()
-            bucket = current_app.config['AWS_S3_BUCKET']
+            # Extract relative path from URL
+            # URL format: /uploads/materials/1/filename.pdf
+            if not file_url.startswith('/uploads/'):
+                return False
 
-            # Extract key from URL
-            key = file_url.split(f"{bucket}.s3.")[1].split(".amazonaws.com/")[1]
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            relative_path = file_url.replace('/uploads/', '')
+            file_path = os.path.join(upload_folder, relative_path)
 
-            client.delete_object(Bucket=bucket, Key=key)
-            return True
-        except ClientError as e:
-            current_app.logger.error(f"S3 delete error: {e}")
+            # Delete file if it exists
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                return True
+            return False
+        except Exception as e:
+            current_app.logger.error(f"File delete error: {e}")
             return False
 
 
