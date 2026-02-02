@@ -61,7 +61,7 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 1001;
+            z-index: 1001 !important;
             width: 60px;
             height: 60px;
             border-radius: 50%;
@@ -70,6 +70,10 @@
             border: none;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             font-size: 24px;
+            cursor: pointer;
+        }
+        .mobile-menu-btn:active {
+            transform: scale(0.95);
         }
         .sidebar-overlay {
             display: none;
@@ -230,29 +234,46 @@
     <script>
         // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Mobile menu script loaded');
+
             // Mobile menu toggle
             const sidebar = document.getElementById('sidebar');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const closeSidebar = document.getElementById('closeSidebar');
 
+            console.log('Sidebar:', sidebar);
+            console.log('Overlay:', sidebarOverlay);
+            console.log('Mobile button:', mobileMenuBtn);
+
             function toggleSidebar() {
-                if (sidebar && sidebarOverlay) {
+                console.log('Toggle sidebar called');
+                if (sidebar) {
                     sidebar.classList.toggle('show');
+                    console.log('Sidebar classes:', sidebar.className);
+                }
+                if (sidebarOverlay) {
                     sidebarOverlay.classList.toggle('show');
+                    console.log('Overlay classes:', sidebarOverlay.className);
                 }
             }
 
             if (mobileMenuBtn) {
+                console.log('Adding click listener to mobile button');
                 mobileMenuBtn.addEventListener('click', function(e) {
+                    console.log('Mobile button clicked!');
                     e.preventDefault();
+                    e.stopPropagation();
                     toggleSidebar();
                 });
+            } else {
+                console.error('Mobile menu button not found!');
             }
 
             if (closeSidebar) {
                 closeSidebar.addEventListener('click', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
                     toggleSidebar();
                 });
             }
