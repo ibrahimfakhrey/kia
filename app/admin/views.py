@@ -6,7 +6,7 @@ from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
 from . import admin_bp
 from .forms import (LoginForm, UserForm, ClasseForm, StudentForm,
-                    SubjectForm, MaterialForm, PaymentForm)
+                    SubjectForm, MaterialForm, PaymentForm, PasswordResetForm)
 
 
 # ==================== AUTH ====================
@@ -460,6 +460,41 @@ def payments_toggle_paid(id):
     db.session.commit()
     flash(f'Payment marked as {"paid" if payment.is_paid else "unpaid"}.', 'success')
     return redirect(url_for('admin.payments_list'))
+
+
+# ==================== PASSWORD RESET ====================
+
+@admin_bp.route('/password-reset', methods=['GET', 'POST'])
+@admin_required
+def password_reset():
+    """Reset password for a specific user or all users."""
+    form = PasswordResetForm()
+
+    # Populate user choices: All Users + individual parent users
+    users = User.query.filter_by(role='parent').order_by(User.full_name).all()
+    form.user_id.choices = [('all', 'All Users (All Parents)')] + [(str(u.id), f"{u.full_name} ({u.email})") for u in users]
+
+    if form.validate_on_submit():
+        user_id = form.user_id.data
+        new_password = form.new_password.data
+
+        if user_id == 'all':
+            # Reset password for all parent users
+            users_to_reset = User.query.filter_by(role='parent').all()
+            for user in users_to_reset:
+                user.set_password(new_password)
+            db.session.commit()
+            flash(f'Password reset successfully for {len(users_to_reset)} parent accounts.', 'success')
+        else:
+            # Reset password for specific user
+            user = User.query.get_or_404(int(user_id))
+            user.set_password(new_password)
+            db.session.commit()
+            flash(f'Password reset successfully for {user.full_name} ({user.email}).', 'success')
+
+        return redirect(url_for('admin.password_reset'))
+
+    return render_template('admin/password_reset.html', form=form, users=users)
 
 # ==================== ATTENDANCE ====================
 

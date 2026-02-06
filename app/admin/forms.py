@@ -67,3 +67,13 @@ class PaymentForm(FlaskForm):
     paid_date = DateField('Paid Date', validators=[Optional()])
     is_paid = BooleanField('Paid')
     notes = TextAreaField('Notes', validators=[Optional()])
+
+
+class PasswordResetForm(FlaskForm):
+    user_id = SelectField('User', coerce=str, validators=[DataRequired()])
+    new_password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), Length(min=6)])
+
+    def validate_confirm_password(self, field):
+        if field.data != self.new_password.data:
+            raise ValidationError('Passwords must match.')
