@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, SelectField, TextAreaField, FloatField, DateField, BooleanField
+from wtforms import StringField, PasswordField, SelectField, SelectMultipleField, TextAreaField, FloatField, DateField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, Optional, ValidationError
 from app.models import User
 
@@ -67,6 +67,32 @@ class PaymentForm(FlaskForm):
     paid_date = DateField('Paid Date', validators=[Optional()])
     is_paid = BooleanField('Paid')
     notes = TextAreaField('Notes', validators=[Optional()])
+
+
+class AnnouncementForm(FlaskForm):
+    title = StringField('العنوان', validators=[DataRequired(), Length(max=200)])
+    message = TextAreaField('نص الإعلان', validators=[DataRequired()])
+    target_type = SelectField('الجمهور المستهدف', choices=[
+        ('all', 'جميع المستخدمين'),
+        ('role', 'حسب الدور'),
+        ('users', 'مستخدمين محددين'),
+    ], validators=[DataRequired()])
+    target_role = SelectField('الدور', choices=[
+        ('', '-- اختر --'),
+        ('parent', 'أولياء الأمور'),
+        ('admin', 'المشرفون'),
+    ], validators=[Optional()])
+    target_user_ids = SelectMultipleField('المستخدمون', coerce=int, validators=[Optional()])
+    is_active = BooleanField('مفعّل', default=True)
+    send_push = BooleanField('إرسال إشعار فوري', default=False)
+
+    def validate_target_role(self, field):
+        if self.target_type.data == 'role' and not field.data:
+            raise ValidationError('يجب اختيار الدور.')
+
+    def validate_target_user_ids(self, field):
+        if self.target_type.data == 'users' and not field.data:
+            raise ValidationError('يجب اختيار مستخدم واحد على الأقل.')
 
 
 class PasswordResetForm(FlaskForm):

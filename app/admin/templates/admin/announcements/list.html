@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+
+{% block title %}الإعلانات - KIA Admin{% endblock %}
+{% block page_title %}الإعلانات{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.announcements_create') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> إعلان جديد
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>العنوان</th>
+                        <th>الجمهور</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in announcements %}
+                    <tr>
+                        <td>
+                            <strong>{{ a.title }}</strong>
+                            <div class="text-muted small">{{ a.message[:80] }}{% if a.message|length > 80 %}…{% endif %}</div>
+                        </td>
+                        <td>
+                            {% if a.target_type == 'all' %}
+                                <span class="badge bg-primary">جميع المستخدمين</span>
+                            {% elif a.target_type == 'role' %}
+                                <span class="badge bg-info">
+                                    {% if a.target_role == 'parent' %}أولياء الأمور{% else %}المشرفون{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ a.target_users.count() }} مستخدم</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.is_active %}
+                                <span class="badge bg-success">مفعّل</span>
+                            {% else %}
+                                <span class="badge bg-secondary">موقوف</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('admin.announcements_toggle', id=a.id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="تفعيل / إيقاف">
+                                    <i class="bi bi-toggle2-{% if a.is_active %}on{% else %}off{% endif %}"></i>
+                                </button>
+                            </form>
+                            <a href="{{ url_for('admin.announcements_edit', id=a.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('admin.announcements_delete', id=a.id) }}" method="POST" class="d-inline" onsubmit="return confirm('حذف هذا الإعلان؟');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">لا توجد إعلانات</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

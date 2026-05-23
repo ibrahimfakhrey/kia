@@ -1,12 +1,13 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
-from app.models import User, Classe, Student, Subject, Material, Payment, Attendance
+from app.models import User, Classe, Student, Subject, Material, Payment, Attendance, Announcement
 from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
 from . import admin_bp
 from .forms import (LoginForm, UserForm, ClasseForm, StudentForm,
-                    SubjectForm, MaterialForm, PaymentForm, PasswordResetForm)
+                    SubjectForm, MaterialForm, PaymentForm, PasswordResetForm,
+                    AnnouncementForm)
 
 
 # ==================== AUTH ====================
@@ -460,6 +461,142 @@ def payments_toggle_paid(id):
     db.session.commit()
     flash(f'Payment marked as {"paid" if payment.is_paid else "unpaid"}.', 'success')
     return redirect(url_for('admin.payments_list'))
+
+
+# ==================== ANNOUNCEMENTS ====================
+
+def _user_choices():
+    return [(u.id, f"{u.full_name} ({u.email}) - {u.role}")
+            for u in User.query.order_by(User.full_name).all()]
+
+
+def _send_announcement_push(announcement):
+    """Send FCM push to the announcement's audience. Returns count sent."""
+    from app.api.notifications import send_push_notification
+
+    if announcement.target_type == 'all':
+        recipients = User.query.filter(User.fcm_token.isnot(None)).all()
+    elif announcement.target_type == 'role':
+        recipients = User.query.filter(
+            User.role == announcement.target_role,
+            User.fcm_token.isnot(None),
+        ).all()
+    else:
+        recipients = [u for u in announcement.target_users if u.fcm_token]
+
+    sent = 0
+    for user in recipients:
+        try:
+            ok = send_push_notification(
+                fcm_token=user.fcm_token,
+                title=announcement.title,
+                body=announcement.message[:200],
+                data={
+                    'type': 'announcement',
+                    'announcement_id': str(announcement.id),
+                },
+            )
+            if ok:
+                sent += 1
+        except Exception as e:
+            print(f'Error sending announcement push to user {user.id}: {e}')
+    return sent
+
+
+@admin_bp.route('/announcements')
+@admin_required
+def announcements_list():
+    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    return render_template('admin/announcements/list.html', announcements=announcements)
+
+
+@admin_bp.route('/announcements/create', methods=['GET', 'POST'])
+@admin_required
+def announcements_create():
+    form = AnnouncementForm()
+    form.target_user_ids.choices = _user_choices()
+
+    if form.validate_on_submit():
+        announcement = Announcement(
+            title=form.title.data,
+            message=form.message.data,
+            target_type=form.target_type.data,
+            target_role=form.target_role.data if form.target_type.data == 'role' else None,
+            is_active=form.is_active.data,
+            created_by=current_user.id,
+        )
+
+        if form.target_type.data == 'users' and form.target_user_ids.data:
+            announcement.target_users = User.query.filter(User.id.in_(form.target_user_ids.data)).all()
+
+        db.session.add(announcement)
+        db.session.commit()
+
+        msg = 'تم إنشاء الإعلان بنجاح.'
+        if form.send_push.data and announcement.is_active:
+            sent = _send_announcement_push(announcement)
+            msg += f' تم إرسال {sent} إشعار.'
+
+        flash(msg, 'success')
+        return redirect(url_for('admin.announcements_list'))
+
+    return render_template('admin/announcements/form.html', form=form, title='إنشاء إعلان')
+
+
+@admin_bp.route('/announcements/<int:id>/edit', methods=['GET', 'POST'])
+@admin_required
+def announcements_edit(id):
+    announcement = Announcement.query.get_or_404(id)
+    form = AnnouncementForm(obj=announcement)
+    form.target_user_ids.choices = _user_choices()
+
+    if request.method == 'GET':
+        form.target_user_ids.data = [u.id for u in announcement.target_users]
+
+    if form.validate_on_submit():
+        announcement.title = form.title.data
+        announcement.message = form.message.data
+        announcement.target_type = form.target_type.data
+        announcement.target_role = form.target_role.data if form.target_type.data == 'role' else None
+        announcement.is_active = form.is_active.data
+
+        if form.target_type.data == 'users':
+            announcement.target_users = User.query.filter(User.id.in_(form.target_user_ids.data or [])).all()
+        else:
+            announcement.target_users = []
+
+        db.session.commit()
+
+        msg = 'تم تحديث الإعلان بنجاح.'
+        if form.send_push.data and announcement.is_active:
+            sent = _send_announcement_push(announcement)
+            msg += f' تم إرسال {sent} إشعار.'
+
+        flash(msg, 'success')
+        return redirect(url_for('admin.announcements_list'))
+
+    return render_template('admin/announcements/form.html', form=form,
+                           title='تعديل الإعلان', announcement=announcement)
+
+
+@admin_bp.route('/announcements/<int:id>/delete', methods=['POST'])
+@admin_required
+def announcements_delete(id):
+    announcement = Announcement.query.get_or_404(id)
+    db.session.delete(announcement)
+    db.session.commit()
+    flash('تم حذف الإعلان.', 'success')
+    return redirect(url_for('admin.announcements_list'))
+
+
+@admin_bp.route('/announcements/<int:id>/toggle', methods=['POST'])
+@admin_required
+def announcements_toggle(id):
+    announcement = Announcement.query.get_or_404(id)
+    announcement.is_active = not announcement.is_active
+    db.session.commit()
+    flash(f'الإعلان {"مفعّل" if announcement.is_active else "موقوف"}.', 'success')
+    return redirect(url_for('admin.announcements_list'))
 
 
 # ==================== PASSWORD RESET ====================

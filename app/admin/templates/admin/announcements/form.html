@@ -1,0 +1,93 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} - KIA Admin{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST" class="row g-3">
+            {{ form.hidden_tag() }}
+
+            <div class="col-12">
+                <label class="form-label">العنوان *</label>
+                {{ form.title(class="form-control", placeholder="مثال: إعلان هام") }}
+                {% for error in form.title.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">نص الإعلان *</label>
+                {{ form.message(class="form-control", rows=5, placeholder="اكتب نص الإعلان هنا...") }}
+                {% for error in form.message.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">الجمهور المستهدف *</label>
+                {{ form.target_type(class="form-select", id="targetType") }}
+                {% for error in form.target_type.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-6" id="roleField" style="display: none;">
+                <label class="form-label">الدور</label>
+                {{ form.target_role(class="form-select") }}
+                {% for error in form.target_role.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-12" id="usersField" style="display: none;">
+                <label class="form-label">اختر المستخدمين (Ctrl/Cmd للاختيار المتعدد)</label>
+                {{ form.target_user_ids(class="form-select", size=10) }}
+                {% for error in form.target_user_ids.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-check mt-3">
+                    {{ form.is_active(class="form-check-input") }}
+                    <label class="form-check-label">{{ form.is_active.label.text }}</label>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-check mt-3">
+                    {{ form.send_push(class="form-check-input") }}
+                    <label class="form-check-label">{{ form.send_push.label.text }}</label>
+                    <div class="text-muted small">إرسال إشعار Push للمستخدمين المستهدفين عند الحفظ</div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <hr>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> حفظ
+                </button>
+                <a href="{{ url_for('admin.announcements_list') }}" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const targetType = document.getElementById('targetType');
+    const roleField = document.getElementById('roleField');
+    const usersField = document.getElementById('usersField');
+
+    function toggleTargetFields() {
+        roleField.style.display = (targetType.value === 'role') ? 'block' : 'none';
+        usersField.style.display = (targetType.value === 'users') ? 'block' : 'none';
+    }
+
+    targetType.addEventListener('change', toggleTargetFields);
+    toggleTargetFields();
+</script>
+{% endblock %}
