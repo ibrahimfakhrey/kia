@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
+from flask_wtf.file import FileField, FileAllowed, FileRequired
 from wtforms import StringField, PasswordField, SelectField, SelectMultipleField, TextAreaField, FloatField, DateField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, Optional, ValidationError
 from app.models import User
@@ -27,6 +27,13 @@ class UserForm(FlaskForm):
             user = User.query.filter_by(email=field.data).first()
             if user:
                 raise ValidationError('Email already registered.')
+
+
+class ParentImportForm(FlaskForm):
+    file = FileField('Excel File', validators=[
+        FileRequired('اختر ملف Excel.'),
+        FileAllowed(['xlsx'], 'يُسمح بملفات ‎.xlsx فقط.')
+    ])
 
 
 class ClasseForm(FlaskForm):

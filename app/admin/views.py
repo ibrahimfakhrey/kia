@@ -1,4 +1,6 @@
-from flask import render_template, redirect, url_for, flash, request
+from io import BytesIO
+
+from flask import render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User, Classe, Student, Subject, Material, Payment, Attendance, Announcement
@@ -7,7 +9,8 @@ from app.utils.decorators import admin_required
 from . import admin_bp
 from .forms import (LoginForm, UserForm, ClasseForm, StudentForm,
                     SubjectForm, MaterialForm, PaymentForm, PasswordResetForm,
-                    AnnouncementForm)
+                    AnnouncementForm, ParentImportForm)
+from .parent_import import build_sample_workbook, import_parents
 
 
 # ==================== AUTH ====================
@@ -86,6 +89,27 @@ def users_create():
         return redirect(url_for('admin.users_list'))
 
     return render_template('admin/users/form.html', form=form, title='Create User')
+
+
+@admin_bp.route('/users/import', methods=['GET', 'POST'])
+@admin_required
+def users_import():
+    form = ParentImportForm()
+    result = None
+    if form.validate_on_submit():
+        result = import_parents(BytesIO(form.file.data.read()))
+    return render_template('admin/users/import.html', form=form, result=result)
+
+
+@admin_bp.route('/users/import/sample')
+@admin_required
+def users_import_sample():
+    return send_file(
+        build_sample_workbook(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='parents_import_sample.xlsx'
+    )
 
 
 @admin_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])

@@ -1,0 +1,117 @@
+{% extends "admin/base.html" %}
+
+{% block title %}استيراد أولياء الأمور - لوحة التحكم{% endblock %}
+{% block page_title %}استيراد أولياء الأمور من Excel{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('admin.users_import_sample') }}" class="btn btn-outline-success">
+    <i class="bi bi-download"></i> تحميل ملف نموذجي
+</a>
+{% endblock %}
+
+{% block content %}
+{% if result and result.errors %}
+<div class="alert alert-danger">
+    <strong>لم يتم استيراد أي بيانات.</strong> صحّح الأخطاء التالية ثم ارفع الملف مرة أخرى:
+    <ul class="mb-0 mt-2">
+        {% for error in result.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% elif result %}
+<div class="alert alert-success">
+    تم الاستيراد بنجاح:
+    {{ result.created_parents|length }} حساب ولي أمر جديد،
+    {{ result.students_created }} طالب جديد.
+    {% if result.existing_parents %}
+    ({{ result.existing_parents }} ولي أمر موجود مسبقاً)
+    {% endif %}
+    {% if result.students_skipped %}
+    — تم تخطي {{ result.students_skipped }} طالب مسجل مسبقاً.
+    {% endif %}
+</div>
+
+{% if result.created_parents %}
+<div class="card mb-4">
+    <div class="card-header">
+        <strong>بيانات الدخول للحسابات الجديدة</strong>
+        <div class="text-danger small">انسخ كلمات المرور الآن، لن تظهر مرة أخرى بعد مغادرة هذه الصفحة.</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>الاسم</th>
+                        <th>البريد الإلكتروني</th>
+                        <th>الهاتف</th>
+                        <th>كلمة المرور</th>
+                        <th>الأبناء</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for parent in result.created_parents %}
+                    <tr>
+                        <td>{{ parent.name }}</td>
+                        <td dir="ltr">{{ parent.email }}</td>
+                        <td dir="ltr">{{ parent.phone or '-' }}</td>
+                        <td dir="ltr"><code>{{ parent.password }}</code></td>
+                        <td>{{ parent.students|join('، ') or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" class="row g-3">
+            {{ form.hidden_tag() }}
+            <div class="col-md-8">
+                <label class="form-label">ملف Excel (‎.xlsx) *</label>
+                {{ form.file(class="form-control", accept=".xlsx") }}
+                {% for error in form.file.errors %}
+                    <small class="text-danger">{{ error }}</small>
+                {% endfor %}
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-upload"></i> رفع واستيراد
+                </button>
+                <a href="{{ url_for('admin.users_list') }}" class="btn btn-outline-secondary">رجوع</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><strong>تنسيق الملف</strong></div>
+    <div class="card-body">
+        <p>كل صف يمثل طالباً واحداً. إذا كان لولي الأمر أكثر من ابن، كرر نفس البريد الإلكتروني في صف لكل ابن.</p>
+        <table class="table table-sm table-bordered mb-3">
+            <thead class="table-light">
+                <tr><th>العمود</th><th>مطلوب؟</th><th>ملاحظات</th></tr>
+            </thead>
+            <tbody>
+                <tr><td dir="ltr">Parent Name</td><td>نعم</td><td>اسم ولي الأمر</td></tr>
+                <tr><td dir="ltr">Email</td><td>نعم</td><td>يُستخدم لتسجيل الدخول ولربط الأبناء بولي الأمر</td></tr>
+                <tr><td dir="ltr">Phone</td><td>لا</td><td>رقم الهاتف</td></tr>
+                <tr><td dir="ltr">Password</td><td>لا</td><td>6 أحرف على الأقل. إذا تُرك فارغاً تُنشأ كلمة مرور عشوائية وتُعرض بعد الاستيراد</td></tr>
+                <tr><td dir="ltr">Student Name</td><td>لا</td><td>اسم الطالب (اتركه فارغاً لإنشاء ولي أمر بدون أبناء)</td></tr>
+                <tr><td dir="ltr">Class</td><td>لا</td><td>يجب أن يطابق اسم فصل موجود</td></tr>
+                <tr><td dir="ltr">Date of Birth</td><td>لا</td><td dir="ltr">YYYY-MM-DD</td></tr>
+            </tbody>
+        </table>
+        <ul class="mb-0">
+            <li>إذا وُجد خطأ في أي صف فلن يُستورد شيء من الملف.</li>
+            <li>إذا كان البريد الإلكتروني لولي أمر موجود مسبقاً، يُضاف الأبناء الجدد إلى حسابه دون تغيير بياناته أو كلمة مروره.</li>
+            <li>الطالب المسجل مسبقاً بنفس الاسم لدى نفس ولي الأمر يُتخطى.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
