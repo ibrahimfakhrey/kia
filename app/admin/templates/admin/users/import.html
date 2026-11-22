@@ -4,8 +4,11 @@
 {% block page_title %}استيراد أولياء الأمور من Excel{% endblock %}
 
 {% block header_actions %}
+<a href="{{ url_for('admin.users_import_sample', format='names') }}" class="btn btn-outline-success">
+    <i class="bi bi-download"></i> نموذج قائمة الأسماء
+</a>
 <a href="{{ url_for('admin.users_import_sample') }}" class="btn btn-outline-success">
-    <i class="bi bi-download"></i> تحميل ملف نموذجي
+    <i class="bi bi-download"></i> نموذج تفصيلي
 </a>
 {% endblock %}
 
@@ -30,13 +33,22 @@
     {% if result.students_skipped %}
     — تم تخطي {{ result.students_skipped }} طالب مسجل مسبقاً.
     {% endif %}
+    {% if result.classes_created %}
+    <div>فصول جديدة أُنشئت: {{ result.classes_created|join('، ') }}</div>
+    {% endif %}
 </div>
 
 {% if result.created_parents %}
 <div class="card mb-4">
     <div class="card-header">
-        <strong>بيانات الدخول للحسابات الجديدة</strong>
-        <div class="text-danger small">انسخ كلمات المرور الآن، لن تظهر مرة أخرى بعد مغادرة هذه الصفحة.</div>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong>بيانات الدخول للحسابات الجديدة</strong>
+            <a class="btn btn-success" download="parent_accounts.xlsx"
+               href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{{ credentials_file }}">
+                <i class="bi bi-file-earmark-excel"></i> تحميل الحسابات (Excel)
+            </a>
+        </div>
+        <div class="text-danger small mt-1">حمّل الملف الآن، كلمات المرور لن تظهر مرة أخرى بعد مغادرة هذه الصفحة.</div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -44,9 +56,10 @@
                 <thead class="table-light">
                     <tr>
                         <th>الاسم</th>
+                        <th>الفصل</th>
                         <th>البريد الإلكتروني</th>
-                        <th>الهاتف</th>
                         <th>كلمة المرور</th>
+                        <th>الهاتف</th>
                         <th>الأبناء</th>
                     </tr>
                 </thead>
@@ -54,9 +67,10 @@
                     {% for parent in result.created_parents %}
                     <tr>
                         <td>{{ parent.name }}</td>
+                        <td>{{ parent.class or '-' }}</td>
                         <td dir="ltr">{{ parent.email }}</td>
-                        <td dir="ltr">{{ parent.phone or '-' }}</td>
                         <td dir="ltr"><code>{{ parent.password }}</code></td>
+                        <td dir="ltr">{{ parent.phone or '-' }}</td>
                         <td>{{ parent.students|join('، ') or '-' }}</td>
                     </tr>
                     {% endfor %}
@@ -79,6 +93,14 @@
                     <small class="text-danger">{{ error }}</small>
                 {% endfor %}
             </div>
+            <div class="col-md-4">
+                <label class="form-label">كلمة مرور موحدة (اختياري)</label>
+                {{ form.password(class="form-control", dir="ltr", autocomplete="off") }}
+                <small class="text-muted">تُعطى لكل الحسابات الجديدة. إذا تُركت فارغة تُنشأ كلمة مرور عشوائية لكل حساب.</small>
+                {% for error in form.password.errors %}
+                    <small class="text-danger d-block">{{ error }}</small>
+                {% endfor %}
+            </div>
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-upload"></i> رفع واستيراد
@@ -89,8 +111,22 @@
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="card-header"><strong>الطريقة الأولى: قائمة أسماء فقط</strong></div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li>كل ورقة (Sheet) في الملف تمثل فصلاً، واسم الورقة هو اسم الفصل (مثل <span dir="ltr">K1</span> أو <span dir="ltr">KG1 A</span>).</li>
+            <li>في كل ورقة عمود واحد به أسماء الطلاب، اسم في كل صف.</li>
+            <li>يُنشأ لكل طالب حساب ولي أمر ببريد إلكتروني مولّد من الاسم (مثل <span dir="ltr">zain.ibrahim@kia.com</span>) وكلمة المرور الموحدة.</li>
+            <li>إذا لم يوجد فصل باسم الورقة يُنشأ تلقائياً.</li>
+            <li>الطالب الموجود مسبقاً بنفس الاسم في نفس الفصل يُتخطى، فإعادة رفع نفس الملف لا تكرر الحسابات.</li>
+            <li>بعد الاستيراد يمكنك تحميل ملف Excel به كل البريد الإلكتروني وكلمات المرور.</li>
+        </ul>
+    </div>
+</div>
+
 <div class="card">
-    <div class="card-header"><strong>تنسيق الملف</strong></div>
+    <div class="card-header"><strong>الطريقة الثانية: ملف تفصيلي</strong></div>
     <div class="card-body">
         <p>كل صف يمثل طالباً واحداً. إذا كان لولي الأمر أكثر من ابن، كرر نفس البريد الإلكتروني في صف لكل ابن.</p>
         <table class="table table-sm table-bordered mb-3">
@@ -101,7 +137,7 @@
                 <tr><td dir="ltr">Parent Name</td><td>نعم</td><td>اسم ولي الأمر</td></tr>
                 <tr><td dir="ltr">Email</td><td>نعم</td><td>يُستخدم لتسجيل الدخول ولربط الأبناء بولي الأمر</td></tr>
                 <tr><td dir="ltr">Phone</td><td>لا</td><td>رقم الهاتف</td></tr>
-                <tr><td dir="ltr">Password</td><td>لا</td><td>6 أحرف على الأقل. إذا تُرك فارغاً تُنشأ كلمة مرور عشوائية وتُعرض بعد الاستيراد</td></tr>
+                <tr><td dir="ltr">Password</td><td>لا</td><td>6 أحرف على الأقل. إذا تُرك فارغاً تُستخدم كلمة المرور الموحدة أو كلمة مرور عشوائية</td></tr>
                 <tr><td dir="ltr">Student Name</td><td>لا</td><td>اسم الطالب (اتركه فارغاً لإنشاء ولي أمر بدون أبناء)</td></tr>
                 <tr><td dir="ltr">Class</td><td>لا</td><td>يجب أن يطابق اسم فصل موجود</td></tr>
                 <tr><td dir="ltr">Date of Birth</td><td>لا</td><td dir="ltr">YYYY-MM-DD</td></tr>

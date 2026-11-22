@@ -1,4 +1,5 @@
 """Bulk import of parent accounts and their children from an Excel sheet."""
+import re
 import secrets
 import string
 from datetime import date, datetime
@@ -16,6 +17,11 @@ COLUMNS = ['Parent Name', 'Email', 'Phone', 'Password', 'Student Name', 'Class',
 REQUIRED_COLUMNS = ['Parent Name', 'Email']
 DATE_FORMATS = ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y')
 MIN_PASSWORD_LENGTH = 6
+# A first row with any of these headers means the detailed format; otherwise the
+# file is treated as plain name lists (one sheet per class, one name per row).
+DETAILED_HEADERS = {'parent name', 'email', 'student name'}
+NAME_LIST_HEADERS = {'name list', 'names list', 'name', 'names', 'student name', 'students'}
+EMAIL_DOMAIN = 'kia.com'
 
 
 def _generate_password(length=10):
@@ -56,6 +62,143 @@ def _parse_date(value):
     return None, False
 
 
+def _clean_name(value):
+    """Tidy a name typed in a list: drops numbering ("12. "), invisible characters and stray dots."""
+    name = re.sub(r'[\u200b-\u200f\ufeff]', '', _text(value)).replace('\u00a0', ' ')
+    name = re.sub(r'^\s*\d+\s*[.)\-]\s*', '', name)
+    name = re.sub(r'\s+', ' ', name).strip(' .')
+    return ' '.join(word[0].upper() + word[1:] for word in name.split(' ') if word)
+
+
+def _class_key(name):
+    """Key for matching a sheet title to a class: "k1", "K1 A" and "KG1 A" style names line up."""
+    key = re.sub(r'\s+', '', name).upper()
+    return re.sub(r'^K(?=\d)', 'KG', key)
+
+
+def _class_display_name(sheet_title):
+    """Name for a class that has to be created from a sheet title ("K1 B" -> "KG1 B")."""
+    match = re.fullmatch(r'KG(\d+)([A-Z]?)', _class_key(sheet_title))
+    if not match:
+        return sheet_title.strip()
+    return f'KG{match.group(1)} {match.group(2)}'.strip()
+
+
+def _email_base(name):
+    """"Zain Ibrahim" -> "zain.ibrahim" (first two words, English letters and digits only)."""
+    words = [re.sub(r'[^a-z0-9]', '', word) for word in name.lower().split()]
+    return '.'.join([word for word in words if word][:2]) or 'parent'
+
+
+def _unique_email(name, used_emails):
+    base = _email_base(name)
+    email = f'{base}@{EMAIL_DOMAIN}'
+    counter = 1
+    while email in used_emails:
+        email = f'{base}{counter}@{EMAIL_DOMAIN}'
+        counter += 1
+    used_emails.add(email)
+    return email
+
+
+def build_credentials_workbook(created_parents):
+    """Excel file with the login details of the accounts an import just created."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Accounts'
+    ws.append(['Name', 'Class', 'Email', 'Password', 'Phone', 'Students'])
+    for parent in created_parents:
+        ws.append([parent['name'], parent.get('class', ''), parent['email'], parent['password'],
+                   parent['phone'] or '', ', '.join(parent['students'])])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill('solid', fgColor='DDEBF7')
+    for letter, width in zip('ABCDEF', (30, 14, 34, 16, 16, 34)):
+        ws.column_dimensions[letter].width = width
+    ws.freeze_panes = 'A2'
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def build_name_list_sample_workbook():
+    """Sample for the simple format: one sheet per class, one student name per row."""
+    class_names = [c.name for c in Classe.query.order_by(Classe.name).limit(2).all()] or ['KG1', 'KG2']
+    samples = [['Zain Ibrahim', 'Yara Ayman', 'Selim Mahmoud'], ['Omar Ismail', 'Laila Ibrahim']]
+    wb = Workbook()
+    wb.remove(wb.active)
+    for class_name, names in zip(class_names, samples):
+        ws = wb.create_sheet(class_name[:31])
+        ws.append(['Name list'])
+        ws['A1'].font = Font(bold=True)
+        for name in names:
+            ws.append([name])
+        ws.column_dimensions['A'].width = 32
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def _import_name_lists(workbook, result, default_password):
+    """Each sheet is a class and each row a student; a parent account is generated per student."""
+    errors = result['errors']
+    entries = []  # (sheet title, student name)
+    for sheet in workbook.worksheets:
+        for row_number, row in enumerate(sheet.iter_rows(values_only=True), start=1):
+            name = _clean_name(next((v for v in row if _text(v)), None))
+            if not name or name.lower() in NAME_LIST_HEADERS:
+                continue
+            if len(name) > 100:
+                errors.append(f'ورقة "{sheet.title}" صف {row_number}: الاسم أطول من 100 حرف.')
+                continue
+            entries.append((sheet.title, name))
+
+    if not errors and not entries:
+        errors.append('الملف لا يحتوي على أي أسماء.')
+    if errors:
+        return result
+
+    classes = {_class_key(c.name): c for c in Classe.query.all()}
+    used_emails = {email.lower() for (email,) in db.session.query(User.email)}
+    known_students = {}  # class id -> names already in that class
+
+    for sheet_title, name in entries:
+        key = _class_key(sheet_title)
+        classe = classes.get(key)
+        if classe is None:
+            classe = Classe(name=_class_display_name(sheet_title))
+            db.session.add(classe)
+            db.session.flush()
+            classes[key] = classe
+            result['classes_created'].append(classe.name)
+        if classe.id not in known_students:
+            known_students[classe.id] = {
+                s.full_name.strip().lower() for s in Student.query.filter_by(class_id=classe.id)
+            }
+        if name.lower() in known_students[classe.id]:
+            result['students_skipped'] += 1
+            continue
+        known_students[classe.id].add(name.lower())
+
+        password = default_password or _generate_password()
+        user = User(email=_unique_email(name, used_emails), full_name=name,
+                    role='parent', is_active=True)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.flush()
+        db.session.add(Student(parent_id=user.id, full_name=name, class_id=classe.id))
+        result['students_created'] += 1
+        result['created_parents'].append({
+            'name': name, 'email': user.email, 'phone': None, 'password': password,
+            'class': classe.name, 'students': [name],
+        })
+
+    db.session.commit()
+    return result
+
+
 def build_sample_workbook():
     """Sample sheet the admin can download, fill in and upload back."""
     class_names = [c.name for c in Classe.query.order_by(Classe.name).limit(2).all()]
@@ -91,11 +234,15 @@ def build_sample_workbook():
     return buffer
 
 
-def import_parents(stream):
-    """Validate the whole sheet first; nothing is saved if any row has an error.
+def import_parents(stream, default_password=''):
+    """Validate the whole file first; nothing is saved if any row has an error.
+
+    Accepts the detailed format (one row per child with parent details) or plain
+    name lists (one sheet per class). default_password is given to every new
+    account that has no password of its own; without it a random one is generated.
 
     Returns a dict with: errors, created_parents, existing_parents,
-    students_created, students_skipped.
+    students_created, students_skipped, classes_created.
     """
     result = {
         'errors': [],
@@ -103,6 +250,7 @@ def import_parents(stream):
         'existing_parents': 0,
         'students_created': 0,
         'students_skipped': 0,
+        'classes_created': [],
     }
     errors = result['errors']
 
@@ -115,6 +263,8 @@ def import_parents(stream):
     rows = workbook.worksheets[0].iter_rows(values_only=True)
     header = next(rows, None) or ()
     index = {_text(h).lower(): i for i, h in enumerate(header) if _text(h)}
+    if not DETAILED_HEADERS & index.keys():
+        return _import_name_lists(workbook, result, default_password)
     missing = [c for c in REQUIRED_COLUMNS if c.lower() not in index]
     if missing:
         errors.append('أعمدة مطلوبة غير موجودة في الصف الأول: ' + ', '.join(missing))
@@ -200,7 +350,7 @@ def import_parents(stream):
     for parent in parents.values():
         user = parent['user']
         if user is None:
-            password = parent['password'] or _generate_password()
+            password = parent['password'] or default_password or _generate_password()
             user = User(email=parent['email'], full_name=parent['name'],
                         phone=parent['phone'] or None, role='parent', is_active=True)
             user.set_password(password)

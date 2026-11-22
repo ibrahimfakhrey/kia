@@ -1,3 +1,4 @@
+import base64
 from io import BytesIO
 
 from flask import render_template, redirect, url_for, flash, request, send_file
@@ -7,10 +8,11 @@ from app.models import User, Classe, Student, Subject, Material, Payment, Attend
 from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
 from . import admin_bp
-from .forms import (LoginForm, UserForm, ClasseForm, StudentForm,
+from .forms import (LoginForm, UserForm, AdminUserForm, ClasseForm, StudentForm,
                     SubjectForm, MaterialForm, PaymentForm, PasswordResetForm,
                     AnnouncementForm, ParentImportForm)
-from .parent_import import build_sample_workbook, import_parents
+from .parent_import import (build_sample_workbook, build_name_list_sample_workbook,
+                            build_credentials_workbook, import_parents)
 
 
 # ==================== AUTH ====================
@@ -96,19 +98,27 @@ def users_create():
 def users_import():
     form = ParentImportForm()
     result = None
+    credentials_file = None
     if form.validate_on_submit():
-        result = import_parents(BytesIO(form.file.data.read()))
-    return render_template('admin/users/import.html', form=form, result=result)
+        result = import_parents(BytesIO(form.file.data.read()),
+                                default_password=(form.password.data or '').strip())
+        if result['created_parents']:
+            # Passwords are only known now, so the file is handed to the page instead of stored.
+            workbook = build_credentials_workbook(result['created_parents'])
+            credentials_file = base64.b64encode(workbook.getvalue()).decode('ascii')
+    return render_template('admin/users/import.html', form=form, result=result,
+                           credentials_file=credentials_file)
 
 
 @admin_bp.route('/users/import/sample')
 @admin_required
 def users_import_sample():
+    names_only = request.args.get('format') == 'names'
     return send_file(
-        build_sample_workbook(),
+        build_name_list_sample_workbook() if names_only else build_sample_workbook(),
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name='parents_import_sample.xlsx'
+        download_name='name_list_sample.xlsx' if names_only else 'parents_import_sample.xlsx'
     )
 
 
@@ -141,6 +151,74 @@ def users_delete(id):
     db.session.commit()
     flash('User deleted successfully.', 'success')
     return redirect(url_for('admin.users_list'))
+
+
+# ==================== ADMINS ====================
+
+@admin_bp.route('/admins')
+@admin_required
+def admins_list():
+    admins = User.query.filter_by(role='admin').order_by(User.created_at.desc()).all()
+    return render_template('admin/admins/list.html', admins=admins)
+
+
+@admin_bp.route('/admins/create', methods=['GET', 'POST'])
+@admin_required
+def admins_create():
+    form = AdminUserForm()
+    if form.validate_on_submit():
+        admin = User(
+            email=form.email.data,
+            full_name=form.full_name.data,
+            phone=form.phone.data,
+            role='admin',
+            is_active=form.is_active.data
+        )
+        admin.set_password(form.password.data)
+        db.session.add(admin)
+        db.session.commit()
+        flash('تم إنشاء حساب المدير بنجاح.', 'success')
+        return redirect(url_for('admin.admins_list'))
+
+    return render_template('admin/admins/form.html', form=form, title='إضافة مدير')
+
+
+@admin_bp.route('/admins/<int:id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admins_edit(id):
+    admin = User.query.filter_by(id=id, role='admin').first_or_404()
+    form = AdminUserForm(original_email=admin.email, obj=admin)
+
+    if form.validate_on_submit():
+        if admin.id == current_user.id and not form.is_active.data:
+            flash('لا يمكنك تعطيل حسابك الحالي.', 'danger')
+        else:
+            admin.email = form.email.data
+            admin.full_name = form.full_name.data
+            admin.phone = form.phone.data
+            admin.is_active = form.is_active.data
+            if form.password.data:
+                admin.set_password(form.password.data)
+            db.session.commit()
+            flash('تم تحديث حساب المدير بنجاح.', 'success')
+            return redirect(url_for('admin.admins_list'))
+
+    return render_template('admin/admins/form.html', form=form, title='تعديل مدير', admin=admin)
+
+
+@admin_bp.route('/admins/<int:id>/delete', methods=['POST'])
+@admin_required
+def admins_delete(id):
+    admin = User.query.filter_by(id=id, role='admin').first_or_404()
+    if admin.id == current_user.id:
+        flash('لا يمكنك حذف حسابك الحالي.', 'danger')
+    elif admin.marked_attendance.count():
+        flash('لا يمكن حذف هذا المدير لأنه سجّل حضوراً من قبل. يمكنك تعطيل حسابه بدلاً من الحذف.', 'danger')
+    else:
+        db.session.delete(admin)
+        db.session.commit()
+        flash('تم حذف حساب المدير.', 'success')
+    return redirect(url_for('admin.admins_list'))
 
 
 # ==================== CLASSES ====================

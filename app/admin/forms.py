@@ -29,10 +29,33 @@ class UserForm(FlaskForm):
                 raise ValidationError('Email already registered.')
 
 
+class AdminUserForm(FlaskForm):
+    full_name = StringField('Full Name', validators=[DataRequired(), Length(max=100)])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=120)])
+    phone = StringField('Phone', validators=[Optional(), Length(max=20)])
+    password = PasswordField('Password', validators=[Optional(), Length(min=6)])
+    is_active = BooleanField('Active', default=True)
+
+    def __init__(self, original_email=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.original_email = original_email
+        # A new admin must always get a password; on edit, blank keeps the current one.
+        if original_email is None:
+            self.password.validators = [DataRequired('كلمة المرور مطلوبة.'), Length(min=6)]
+
+    def validate_email(self, field):
+        if field.data != self.original_email:
+            if User.query.filter_by(email=field.data).first():
+                raise ValidationError('البريد الإلكتروني مسجل مسبقاً.')
+
+
 class ParentImportForm(FlaskForm):
     file = FileField('Excel File', validators=[
         FileRequired('اختر ملف Excel.'),
         FileAllowed(['xlsx'], 'يُسمح بملفات ‎.xlsx فقط.')
+    ])
+    password = StringField('Password', validators=[
+        Optional(), Length(min=6, max=50, message='كلمة المرور يجب ألا تقل عن 6 أحرف.')
     ])
 
 
