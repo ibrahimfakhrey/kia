@@ -1,10 +1,11 @@
 import base64
 from io import BytesIO
 
-from flask import render_template, redirect, url_for, flash, request, send_file
+from flask import render_template, redirect, url_for, flash, request, send_file, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models import User, Classe, Student, Subject, Material, Payment, Attendance, Announcement
+from app.models.announcement import announcement_targets
 from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
 from . import admin_bp
@@ -143,13 +144,58 @@ def users_edit(id):
     return render_template('admin/users/form.html', form=form, title='Edit User', user=user)
 
 
+def _delete_parents(parent_id=None):
+    """Delete one parent (or all parents when parent_id is None) together with
+    everything that references them.
+
+    Students have a NOT NULL parent_id, so the children (and their payments
+    and attendance) must be removed before the parent rows themselves.
+    """
+    parent_filter = [User.role == 'parent']
+    if parent_id is not None:
+        parent_filter.append(User.id == parent_id)
+
+    parent_ids = db.select(User.id).where(*parent_filter)
+    student_ids = db.select(Student.id).where(Student.parent_id.in_(parent_ids))
+
+    Attendance.query.filter(Attendance.student_id.in_(student_ids)).delete(synchronize_session=False)
+    Payment.query.filter(Payment.student_id.in_(student_ids)).delete(synchronize_session=False)
+    Student.query.filter(Student.parent_id.in_(parent_ids)).delete(synchronize_session=False)
+
+    db.session.execute(
+        announcement_targets.delete().where(announcement_targets.c.user_id.in_(parent_ids)))
+    Announcement.query.filter(Announcement.created_by.in_(parent_ids)).update(
+        {Announcement.created_by: None}, synchronize_session=False)
+
+    return User.query.filter(*parent_filter).delete(synchronize_session=False)
+
+
 @admin_bp.route('/users/<int:id>/delete', methods=['POST'])
 @admin_required
 def users_delete(id):
-    user = User.query.get_or_404(id)
-    db.session.delete(user)
-    db.session.commit()
-    flash('User deleted successfully.', 'success')
+    user = User.query.filter_by(id=id, role='parent').first_or_404()
+    try:
+        _delete_parents(user.id)
+        db.session.commit()
+        flash('تم حذف ولي الأمر وأبنائه بنجاح.', 'success')
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Failed to delete parent %s', id)
+        flash('تعذر حذف ولي الأمر. حاول مرة أخرى.', 'danger')
+    return redirect(url_for('admin.users_list'))
+
+
+@admin_bp.route('/users/delete-all', methods=['POST'])
+@admin_required
+def users_delete_all():
+    try:
+        deleted = _delete_parents()
+        db.session.commit()
+        flash(f'تم حذف {deleted} من أولياء الأمور مع جميع أبنائهم.', 'success')
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Failed to delete all parents')
+        flash('تعذر حذف أولياء الأمور. حاول مرة أخرى.', 'danger')
     return redirect(url_for('admin.users_list'))
 
 

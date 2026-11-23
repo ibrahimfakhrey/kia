@@ -4,6 +4,14 @@
 {% block page_title %}أولياء الأمور{% endblock %}
 
 {% block header_actions %}
+{% if users %}
+<form action="{{ url_for('admin.users_delete_all') }}" method="POST" class="d-inline"
+      onsubmit="return confirm('سيتم حذف جميع أولياء الأمور ({{ users|length }}) مع أبنائهم ومدفوعاتهم وسجلات حضورهم نهائياً. هل أنت متأكد؟') && confirm('لا يمكن التراجع عن هذا الإجراء. تأكيد الحذف؟');">
+    <button type="submit" class="btn btn-danger">
+        <i class="bi bi-trash"></i> حذف الكل
+    </button>
+</form>
+{% endif %}
 <a href="{{ url_for('admin.users_import') }}" class="btn btn-outline-success">
     <i class="bi bi-file-earmark-excel"></i> استيراد من Excel
 </a>
@@ -45,7 +53,7 @@
                             <a href="{{ url_for('admin.users_edit', id=user.id) }}" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form action="{{ url_for('admin.users_delete', id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا المستخدم؟');">
+                            <form action="{{ url_for('admin.users_delete', id=user.id) }}" method="POST" class="d-inline" onsubmit="return confirm('سيتم حذف ولي الأمر مع أبنائه ومدفوعاتهم وسجلات حضورهم. هل أنت متأكد؟');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">
                                     <i class="bi bi-trash"></i>
                                 </button>
