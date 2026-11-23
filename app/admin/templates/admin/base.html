@@ -138,64 +138,86 @@
                         <small class="text-muted">أكاديمية كيا الدولية للأطفال</small>
                     </div>
                     <ul class="nav flex-column mt-3">
+                        {% if current_user.has_full_access() %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" href="{{ url_for('admin.dashboard') }}">
                                 <i class="bi bi-speedometer2"></i> الرئيسية
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('users') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'users' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.users_list') }}">
                                 <i class="bi bi-people"></i> أولياء الأمور
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_full_access() %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'admins' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.admins_list') }}">
                                 <i class="bi bi-shield-lock"></i> المديرون
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('students') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'students' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.students_list') }}">
                                 <i class="bi bi-person-badge"></i> الطلاب
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('classes') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'classes' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.classes_list') }}">
                                 <i class="bi bi-building"></i> الفصول
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('attendance') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'attendance' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.attendance_list') }}">
                                 <i class="bi bi-calendar-check"></i> تسجيل الحضور
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('subjects') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'subjects' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.subjects_list') }}">
                                 <i class="bi bi-book"></i> المواد
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('materials') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'materials' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.materials_list') }}">
                                 <i class="bi bi-file-earmark-text"></i> المحتوى التعليمي
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('payments') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'payments' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.payments_list') }}">
                                 <i class="bi bi-credit-card"></i> المدفوعات
                             </a>
                         </li>
+                        {% endif %}
+                        {% if current_user.has_permission('announcements') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'announcements' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.announcements_list') }}">
                                 <i class="bi bi-megaphone"></i> الإعلانات
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                     <hr class="border-secondary">
                     <ul class="nav flex-column">
+                        {% if current_user.has_permission('password_reset') %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'password_reset' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.password_reset') }}">
                                 <i class="bi bi-key"></i> إعادة تعيين كلمات المرور
                             </a>
                         </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a class="nav-link text-danger" href="{{ url_for('admin.logout') }}">
                                 <i class="bi bi-box-arrow-right"></i> تسجيل الخروج

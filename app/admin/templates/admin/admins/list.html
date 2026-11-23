@@ -19,6 +19,7 @@
                         <th>الاسم</th>
                         <th>البريد الإلكتروني</th>
                         <th>الهاتف</th>
+                        <th>الصلاحيات</th>
                         <th>الحالة</th>
                         <th>الإجراءات</th>
                     </tr>
@@ -34,6 +35,17 @@
                         </td>
                         <td>{{ admin.email }}</td>
                         <td>{{ admin.phone or '-' }}</td>
+                        <td>
+                            {% if admin.has_full_access() %}
+                                <span class="badge bg-primary">صلاحية كاملة</span>
+                            {% else %}
+                                {% for key in admin.permission_list %}
+                                    <span class="badge bg-light text-dark border">{{ sections[key][0] }}</span>
+                                {% else %}
+                                    <span class="text-muted">لا شيء</span>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
                         <td>
                             {% if admin.is_active %}
                                 <span class="badge bg-success">نشط</span>

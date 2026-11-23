@@ -6,11 +6,6 @@
 {% block content %}
 <div class="card">
     <div class="card-body">
-        {% if not admin %}
-        <div class="alert alert-warning">
-            المدير له صلاحية كاملة على لوحة التحكم: أولياء الأمور، الطلاب، المدفوعات، وإضافة أو حذف مديرين آخرين.
-        </div>
-        {% endif %}
         <form method="POST" class="row g-3">
             {{ form.hidden_tag() }}
 
@@ -58,6 +53,38 @@
 
             <div class="col-12">
                 <hr>
+                <h6 class="mb-3">الصلاحيات</h6>
+                {% if admin and admin.id == current_user.id %}
+                <div class="alert alert-info mb-0">لا يمكنك تعديل صلاحيات حسابك الحالي.</div>
+                <div class="d-none">{{ form.full_access() }}</div>
+                {% else %}
+                <div class="form-check form-switch mb-2">
+                    {{ form.full_access(class="form-check-input", id="fullAccess") }}
+                    <label class="form-check-label" for="fullAccess">
+                        صلاحية كاملة (كل الأقسام + إضافة وحذف المديرين)
+                    </label>
+                </div>
+                <div id="sectionsBox" class="border rounded p-3">
+                    <div class="text-muted small mb-2">يرى هذا المدير الأقسام المحددة فقط:</div>
+                    <div class="row">
+                        {% for option in form.sections %}
+                        <div class="col-md-4 col-6">
+                            <div class="form-check">
+                                {{ option(class="form-check-input") }}
+                                <label class="form-check-label" for="{{ option.id }}">{{ option.label.text }}</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% for error in form.sections.errors %}
+                        <small class="text-danger d-block mt-2">{{ error }}</small>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-12">
+                <hr>
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-lg"></i> حفظ
                 </button>
@@ -66,4 +93,17 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        const fullAccess = document.getElementById('fullAccess');
+        const box = document.getElementById('sectionsBox');
+        if (!fullAccess || !box) return;
+        const sync = () => { box.style.display = fullAccess.checked ? 'none' : ''; };
+        fullAccess.addEventListener('change', sync);
+        sync();
+    })();
+</script>
 {% endblock %}

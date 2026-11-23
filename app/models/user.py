@@ -4,6 +4,21 @@ from flask_login import UserMixin
 from app.extensions import db, login_manager
 
 
+# Admin panel sections a manager can be limited to: key -> (label, landing endpoint).
+# Managing other managers is not listed here: it is reserved for full-access admins.
+ADMIN_SECTIONS = {
+    'users': ('أولياء الأمور', 'admin.users_list'),
+    'students': ('الطلاب', 'admin.students_list'),
+    'classes': ('الفصول', 'admin.classes_list'),
+    'attendance': ('تسجيل الحضور', 'admin.attendance_list'),
+    'subjects': ('المواد', 'admin.subjects_list'),
+    'materials': ('المحتوى التعليمي', 'admin.materials_list'),
+    'payments': ('المدفوعات', 'admin.payments_list'),
+    'announcements': ('الإعلانات', 'admin.announcements_list'),
+    'password_reset': ('إعادة تعيين كلمات المرور', 'admin.password_reset'),
+}
+
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -15,6 +30,9 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     fcm_token = db.Column(db.String(255))  # Firebase Cloud Messaging token
     is_active = db.Column(db.Boolean, default=True)
+    # Admins only. NULL = full access; otherwise a comma-separated list of
+    # ADMIN_SECTIONS keys the manager is limited to ('' = no sections).
+    permissions = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -29,6 +47,22 @@ class User(UserMixin, db.Model):
 
     def is_admin(self):
         return self.role == 'admin'
+
+    def has_full_access(self):
+        return self.is_admin() and self.permissions is None
+
+    @property
+    def permission_list(self):
+        """Sections this admin may open, in sidebar order."""
+        if not self.is_admin():
+            return []
+        if self.permissions is None:
+            return list(ADMIN_SECTIONS)
+        granted = {p.strip() for p in self.permissions.split(',')}
+        return [key for key in ADMIN_SECTIONS if key in granted]
+
+    def has_permission(self, section):
+        return section in self.permission_list
 
     def to_dict(self):
         return {

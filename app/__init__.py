@@ -4,6 +4,15 @@ from .extensions import db, migrate, jwt, login_manager, cors
 import os
 
 
+def _ensure_schema():
+    """Add columns that db.create_all() cannot add to already-existing tables."""
+    from sqlalchemy import inspect, text
+    columns = {c['name'] for c in inspect(db.engine).get_columns('users')}
+    if 'permissions' not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(text('ALTER TABLE users ADD COLUMN permissions TEXT'))
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -47,5 +56,6 @@ def create_app(config_class=Config):
     # Create tables
     with app.app_context():
         db.create_all()
+        _ensure_schema()
 
     return app

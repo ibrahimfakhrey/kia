@@ -1,4 +1,4 @@
-from .user import User
+from .user import User, ADMIN_SECTIONS
 from .classe import Classe
 from .student import Student
 from .subject import Subject

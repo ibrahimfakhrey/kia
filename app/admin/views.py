@@ -4,7 +4,7 @@ from io import BytesIO
 from flask import render_template, redirect, url_for, flash, request, send_file, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
-from app.models import User, Classe, Student, Subject, Material, Payment, Attendance, Announcement
+from app.models import ADMIN_SECTIONS, User, Classe, Student, Subject, Material, Payment, Attendance, Announcement
 from app.models.announcement import announcement_targets
 from app.services.s3_service import s3_service
 from app.utils.decorators import admin_required
@@ -82,7 +82,7 @@ def users_create():
             email=form.email.data,
             full_name=form.full_name.data,
             phone=form.phone.data,
-            role=form.role.data,
+            role='parent',
             is_active=form.is_active.data
         )
         user.set_password(form.password.data)
@@ -126,14 +126,14 @@ def users_import_sample():
 @admin_bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
 @admin_required
 def users_edit(id):
-    user = User.query.get_or_404(id)
+    # Parents only: admin accounts are managed from the admins section.
+    user = User.query.filter_by(id=id, role='parent').first_or_404()
     form = UserForm(original_email=user.email, obj=user)
 
     if form.validate_on_submit():
         user.email = form.email.data
         user.full_name = form.full_name.data
         user.phone = form.phone.data
-        user.role = form.role.data
         user.is_active = form.is_active.data
         if form.password.data:
             user.set_password(form.password.data)
@@ -205,7 +205,7 @@ def users_delete_all():
 @admin_required
 def admins_list():
     admins = User.query.filter_by(role='admin').order_by(User.created_at.desc()).all()
-    return render_template('admin/admins/list.html', admins=admins)
+    return render_template('admin/admins/list.html', admins=admins, sections=ADMIN_SECTIONS)
 
 
 @admin_bp.route('/admins/create', methods=['GET', 'POST'])
@@ -218,7 +218,8 @@ def admins_create():
             full_name=form.full_name.data,
             phone=form.phone.data,
             role='admin',
-            is_active=form.is_active.data
+            is_active=form.is_active.data,
+            permissions=form.permissions_value()
         )
         admin.set_password(form.password.data)
         db.session.add(admin)
@@ -234,11 +235,17 @@ def admins_create():
 def admins_edit(id):
     admin = User.query.filter_by(id=id, role='admin').first_or_404()
     form = AdminUserForm(original_email=admin.email, obj=admin)
+    if request.method == 'GET':
+        form.full_access.data = admin.has_full_access()
+        form.sections.data = [] if admin.has_full_access() else admin.permission_list
 
     if form.validate_on_submit():
         if admin.id == current_user.id and not form.is_active.data:
             flash('لا يمكنك تعطيل حسابك الحالي.', 'danger')
+        elif admin.id == current_user.id and not form.full_access.data:
+            flash('لا يمكنك تقييد صلاحيات حسابك الحالي.', 'danger')
         else:
+            admin.permissions = form.permissions_value()
             admin.email = form.email.data
             admin.full_name = form.full_name.data
             admin.phone = form.phone.data

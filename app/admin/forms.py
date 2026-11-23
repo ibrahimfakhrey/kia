@@ -2,7 +2,8 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 from wtforms import StringField, PasswordField, SelectField, SelectMultipleField, TextAreaField, FloatField, DateField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, Optional, ValidationError
-from app.models import User
+from wtforms.widgets import CheckboxInput, ListWidget
+from app.models import User, ADMIN_SECTIONS
 
 
 class LoginForm(FlaskForm):
@@ -15,7 +16,6 @@ class UserForm(FlaskForm):
     password = PasswordField('Password', validators=[Optional(), Length(min=6)])
     full_name = StringField('Full Name', validators=[DataRequired(), Length(max=100)])
     phone = StringField('Phone', validators=[Optional(), Length(max=20)])
-    role = SelectField('Role', choices=[('parent', 'Parent'), ('admin', 'Admin')])
     is_active = BooleanField('Active', default=True)
 
     def __init__(self, original_email=None, *args, **kwargs):
@@ -35,6 +35,13 @@ class AdminUserForm(FlaskForm):
     phone = StringField('Phone', validators=[Optional(), Length(max=20)])
     password = PasswordField('Password', validators=[Optional(), Length(min=6)])
     is_active = BooleanField('Active', default=True)
+    full_access = BooleanField('Full access', default=True)
+    sections = SelectMultipleField(
+        'Sections',
+        choices=[(key, label) for key, (label, _) in ADMIN_SECTIONS.items()],
+        widget=ListWidget(prefix_label=False),
+        option_widget=CheckboxInput(),
+    )
 
     def __init__(self, original_email=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,6 +54,16 @@ class AdminUserForm(FlaskForm):
         if field.data != self.original_email:
             if User.query.filter_by(email=field.data).first():
                 raise ValidationError('البريد الإلكتروني مسجل مسبقاً.')
+
+    def validate_sections(self, field):
+        if not self.full_access.data and not field.data:
+            raise ValidationError('اختر قسماً واحداً على الأقل أو فعّل الصلاحية الكاملة.')
+
+    def permissions_value(self):
+        """Value to store in User.permissions (None = full access)."""
+        if self.full_access.data:
+            return None
+        return ','.join(key for key in ADMIN_SECTIONS if key in (self.sections.data or []))
 
 
 class ParentImportForm(FlaskForm):
